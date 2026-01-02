@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System: Interactive & Facts</title>
+    <style>
+        :root {
+            --orbit-color: rgba(255, 255, 255, 0.12);
+            --accent-color: #ffaa00;
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background-color: #050510;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+            perspective: 1500px;
+        }
+
+        /* --- UI CONTROLS (Top Left) --- */
+        .controls {
+            position: absolute;
+            top: 20px; left: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover { background: rgba(255, 255, 255, 0.15); border-color: white; color: white; }
+        .btn.active { 
+            background: var(--accent-color); 
+            color: black; 
+            border-color: var(--accent-color); 
+            box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+        }
+
+        /* --- FACTS SECTION (Bottom Right) --- */
+        .facts-container {
+            position: absolute;
+            bottom: 30px; right: 30px;
+            width: 300px;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border-left: 3px solid var(--accent-color);
+            padding: 20px;
+            border-radius: 0 8px 8px 0;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: transform 0.3s;
+        }
+
+        .facts-container h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .fact-text {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #ddd;
+            min-height: 60px; /* Prevents jumping when text changes */
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+
+
+        /* --- BACKGROUND --- */
+        .stars {
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background-image: 
+                radial-gradient(white, rgba(255,255,255,.2) 1px, transparent 2px),
+                radial-gradient(white, rgba(255,255,255,.1) 1px, transparent 2px);
+            background-size: 550px 550px, 250px 250px;
+            z-index: -1;
+            transform: translateZ(-1000px);
+            opacity: 0.6;
+        }
+
+        /* --- UNIVERSE STAGE --- */
+        .universe-stage {
+            position: relative;
+            width: 0; height: 0;
+            transform-style: preserve-3d;
+            transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .galaxy-track {
+            position: absolute;
+            top: 0; left: 0;
+            width: 0; height: 0;
+            transform-style: preserve-3d;
+        }
+
+        /* --- VIEW MODES --- */
+        /* 2D Flat */
+        .view-2d .universe-stage { transform: rotateX(0deg); }
+        .view-2d .planet { transform: translate(-50%, -50%); }
+
+        /* 3D Tilted */
+        .view-3d .universe-stage { transform: rotateX(60deg); }
+        .view-3d .planet { transform: translate(-50%, -50%) rotateX(-60deg); } /* Billboard */
+
+        /* Helical Vortex */
+        .view-helical .universe-stage { transform: rotateX(15deg) rotateY(-30deg) rotateZ(10deg); }
+        .view-helical .galaxy-track { animation: helicalTravel 30s linear infinite; }
+        .view-helical .planet { transform: translate(-50%, -50%) rotateY(30deg) rotateX(-15deg); }
+        .view-helical .stars { animation: starsRush 4s linear infinite; }
+
+
+        /* --- OBJECTS --- */
+        .sun {
+            position: absolute;
+            width: 50px; height: 50px;
+            background: radial-gradient(circle, #fff, #ffd700, #ff8c00);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 60px #ff8c00, 0 0 20px #ffd700;
+            z-index: 10;
+        }
+
+        .orbit {
+            position: absolute;
+            top: 50%; left: 50%;
+            border-radius: 50%;
+            border: 1px solid var(--orbit-color);
+            transform: translate(-50%, -50%);
+            transform-style: preserve-3d;
+        }
+
+        .planet {
+            position: absolute;
+            top: 0; left: 50%;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            transition: transform 0.5s;
+        }
+
+        /* Planet Configs */
+        .orb-mercury { width: 80px; height: 80px; animation: spin 2s linear infinite; }
+        .mercury { width: 8px; height: 8px; background: #aaa; }
+
+        .orb-venus { width: 120px; height: 120px; animation: spin 3s linear infinite; }
+        .venus { width: 12px; height: 12px; background: #d4a373; }
+
+        .orb-earth { width: 170px; height: 170px; animation: spin 4s linear infinite; }
+        .earth { width: 14px; height: 14px; background: #2a9d8f; }
+
+        .orb-mars { width: 220px; height: 220px; animation: spin 6s linear infinite; }
+        .mars { width: 10px; height: 10px; background: #e76f51; }
+
+        .orb-jupiter { width: 320px; height: 320px; animation: spin 12s linear infinite; }
+        .jupiter { width: 30px; height: 30px; background: #e9c46a; }
+
+        .orb-saturn { width: 420px; height: 420px; animation: spin 18s linear infinite; }
+        .saturn { width: 26px; height: 26px; background: #e0cda7; }
+        .saturn::after { content: ''; position: absolute; top: 50%; left: 50%; width: 44px; height: 12px; border: 3px solid rgba(220,200,180,0.6); border-radius: 50%; transform: translate(-50%, -50%); }
+
+        .orb-uranus { width: 500px; height: 500px; animation: spin 25s linear infinite; }
+        .uranus { width: 20px; height: 20px; background: #d1f3f8; }
+
+        .orb-neptune { width: 580px; height: 580px; animation: spin 35s linear infinite; }
+        .neptune { width: 18px; height: 18px; background: #5b5ddf; }
+
+
+        /* --- KEYFRAMES --- */
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        @keyframes helicalTravel {
+            0% { transform: translate(-30vw, 20vh) translateZ(300px); }
+            100% { transform: translate(30vw, -20vh) translateZ(-600px); }
+        }
+        @keyframes starsRush {
+            0% { transform: translateZ(-1000px) translate(0, 0); }
+            100% { transform: translateZ(-1000px) translate(-1000px, 500px); }
+        }
+
+    </style>
+</head>
+<body class="view-2d">
+
+    <div class="controls">
+        <button class="btn active" onclick="setMode('2d', this)">2D Flat</button>
+        <button class="btn" onclick="setMode('3d', this)">3D View</button>
+        <button class="btn" onclick="setMode('helical', this)">Helical</button>
+    </div>
+
+    <div class="facts-container">
+        <h3>Galactic Facts</h3>
+        <div class="fact-text" id="factDisplay">Loading facts...</div>
+    </div>
+
+    <div class="stars"></div>
+    <div class="universe-stage">
+        <div class="galaxy-track">
+            <div class="sun"></div>
+            <div class="orbit orb-mercury"><div class="planet mercury"></div></div>
+            <div class="orbit orb-venus"><div class="planet venus"></div></div>
+            <div class="orbit orb-earth"><div class="planet earth"></div></div>
+            <div class="orbit orb-mars"><div class="planet mars"></div></div>
+            <div class="orbit orb-jupiter"><div class="planet jupiter"></div></div>
+            <div class="orbit orb-saturn"><div class="planet saturn"></div></div>
+            <div class="orbit orb-uranus"><div class="planet uranus"></div></div>
+            <div class="orbit orb-neptune"><div class="planet neptune"></div></div>
+        </div>
+    </div>
+
+    <script>
+        // View Mode Switcher
+        function setMode(mode, btn) {
+            document.body.classList.remove('view-2d', 'view-3d', 'view-helical');
+            document.body.classList.add('view-' + mode);
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        // Facts Data & Rotation
+        const facts = [
+            "The Sun contains 99.86% of the Solar System's total mass.",
+            "One day on Venus is longer than one year on Venus.",
+            "Jupiter has 79 known moons, the largest being Ganymede.",
+            "Saturn's rings are made mostly of ice particles, some as big as a house.",
+            "The solar system travels through the galaxy at about 515,000 mph (828,000 km/h).",
+            "Uranus rotates on its side, rolling like a ball around the Sun.",
+            "Neutron stars can spin at a rate of 600 rotations per second.",
+            "Light from the Sun takes about 8 minutes and 20 seconds to reach Earth."
+        ];
+
+        let factIndex = 0;
+        const factDisplay = document.getElementById('factDisplay');
+
+        function rotateFact() {
+            // Fade out
+            factDisplay.style.opacity = 0;
+            
+            setTimeout(() => {
+                // Change text and Fade in
+                factDisplay.innerText = facts[factIndex];
+                factDisplay.style.animation = 'none';
+                factDisplay.offsetHeight; /* Trigger reflow */
+                factDisplay.style.animation = 'fadeIn 0.5s forwards';
+                
+                factIndex = (factIndex + 1) % facts.length;
+            }, 500);
+        }
+
+        // Initial Call and Interval
+        rotateFact();
+        setInterval(rotateFact, 4000); // Change fact every 6 seconds
+
+    </script>
+</body>
+</html>
